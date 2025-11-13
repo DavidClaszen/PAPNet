@@ -39,9 +39,9 @@ class GatedActivation(torch.nn.Module):
 
             if normalization is None:
                 Convolution = SE3Convolution
-            if normalization is "batch":
+            if normalization == "batch":
                 Convolution = partial(SE3BNConvolution, momentum=batch_norm_momentum)
-            if normalization is "group":
+            if normalization == "group":
                 Convolution = SE3GNConvolution
             if normalization == "instance":
                 Convolution = partial(SE3GNConvolution, Rs_gn=[(1, 2 * n + 1) for n, mul in enumerate(repr_in) for _ in range(mul)])
