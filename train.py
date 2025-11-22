@@ -160,7 +160,7 @@ if __name__ == '__main__':
                     total_seen_class[l] += 1
 
             test_ins_acc = total_correct / float(total_seen)
-            test_cls_acc = np.mean(np.array(total_correct_class)/np.array(total_seen_class, dtype=np.float))
+            test_cls_acc = np.mean(np.array(total_correct_class)/np.array(total_seen_class, dtype=np.float32))
             test_bin_acc = total_bin / float(total_seen)
             print('Epoch: %d, Test Ins Acc: %f' % (epoch+1, test_ins_acc))
             print('Epoch: %d, Test Cls Acc: %f' % (epoch+1, test_cls_acc))
