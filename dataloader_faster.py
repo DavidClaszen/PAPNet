@@ -15,25 +15,31 @@ def pc2vol(points, vsize=64, radius=1.0):
     vol[locations[:, 0], locations[:, 1], locations[:, 2]] = 1.0
     return vol
     
-def pc2vol_torch(points, vsize=64, radius=1.0):
+def batch_pc2vol_torch(batch_points, vsize=64, radius=1.0):
     """ Convert point cloud to volumetric representation using PyTorch
     
     Use this function to leverage GPU acceleration for faster conversion during training.
     
     Args:
-        points: (N, 3) torch tensor of point cloud
+        points: (B, N, 3) torch tensor of point cloud
         vsize: int, size of the volumetric grid
         radius: float, radius of the sphere within which points are considered
 
     Returns:
-        vol: (vsize, vsize, vsize) torch tensor of volumetric data
+        vol: (B, vsize, vsize, vsize) torch tensor of volumetric data
     """
-    vol = torch.zeros((vsize, vsize, vsize)).to(points.device)
+    B = batch_points.shape[0]
+    device = batch_points.device
+    batch_vol = torch.zeros((B, vsize, vsize, vsize), dtype=torch.float32, device=device)
     voxel = 2 * radius / float(vsize)
-    locations = (points + radius) / voxel
+    locations = (batch_points + radius) / voxel
     locations = locations.long()
-    vol[locations[:, 0], locations[:, 1], locations[:, 2]] = 1.0
-    return vol
+    # Clamp locations to valid voxel grid indices
+    locations = torch.clamp(locations, 0, vsize - 1)
+    # Set voxels to 1.0 for each point
+    for i in range(B):
+        batch_vol[i, locations[i, :, 0], locations[i, :, 1], locations[i, :, 2]] = 1.0
+    return batch_vol
 
 def Rs_to_bin_delta_batch(Rs, R_bin_ctrs, knn=False):
     def R_to_bin_delta(R=None, R_bin_ctrs=None, theta1=0.4, theta2=0.2, knn=False):
