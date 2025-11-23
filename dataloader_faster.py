@@ -282,6 +282,10 @@ class FastDataLoader(Dataset):
         # Convert noisy quaternions to rotation matrices
         batch_gt_Rmat_noi = torch.gather(R_bin_ctrs_torch, 0, 
             batch_gt_noi_bin[:, None, None].repeat(1, 3, 3))
+        
+        # Back to CPU
+        batch_gt_rot_bin = batch_gt_rot_bin.cpu()
+        batch_gt_Rmat_noi = batch_gt_Rmat_noi.cpu()
         return batch_gt_rot_bin, batch_gt_Rmat_noi
 
     def __len__(self):
