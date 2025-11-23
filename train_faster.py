@@ -107,7 +107,7 @@ if __name__ == '__main__':
                 pts.cuda(), gt_cls.cuda().long(), gt_rot_bin.cuda(), gt_Rmat_noi.cuda()
 
             optimizer.zero_grad()
-            print(f"Volume shape before classifier: {vol.shape}")
+            print(f"Points shape: {pts.shape}")  # Expected shape: (B, N, 3)
 
             vol = batch_pc2vol_torch(pts)  # B*N*3 -> B*64*64*64
 
