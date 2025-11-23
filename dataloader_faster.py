@@ -26,19 +26,29 @@ def batch_pc2vol_torch(batch_points, vsize=64, radius=1.0):
         radius: float, radius of the sphere within which points are considered
 
     Returns:
-        vol: (B, vsize, vsize, vsize) torch tensor of volumetric data
+        vol: (B, 1, vsize, vsize, vsize) torch tensor of volumetric data
     """
     B = batch_points.shape[0]
     device = batch_points.device
-    batch_vol = torch.zeros((B, vsize, vsize, vsize), dtype=torch.float32, device=device)
+    
+    # Initialize batch volume
+    batch_vol = torch.zeros((B, 1, vsize, vsize, vsize), device=device)
+    
+    # Calculate voxel size
     voxel = 2 * radius / float(vsize)
-    locations = (batch_points + radius) / voxel
-    locations = locations.long()
-    # Clamp locations to valid voxel grid indices
+    
+    # Convert points to voxel locations
+    locations = ((batch_points + radius) / voxel).long()
+    
+    # Clamp locations to valid range
     locations = torch.clamp(locations, 0, vsize - 1)
-    # Set voxels to 1.0 for each point
-    for i in range(B):
-        batch_vol[i, locations[i, :, 0], locations[i, :, 1], locations[i, :, 2]] = 1.0
+    
+    # Set voxels to 1.0 for each point in each batch without looping over batches
+    batch_vol[torch.arange(B).unsqueeze(1), 
+              0, 
+              locations[:, :, 0], 
+              locations[:, :, 1], 
+              locations[:, :, 2]] = 1.0
     return batch_vol
 
 def Rs_to_bin_delta_batch(Rs, R_bin_ctrs, knn=False):
