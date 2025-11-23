@@ -283,9 +283,10 @@ class FastDataLoader(Dataset):
         batch_gt_Rmat_noi = torch.gather(R_bin_ctrs_torch, 0, 
             batch_gt_noi_bin[:, None, None].repeat(1, 3, 3))
         
-        # Back to CPU
-        batch_gt_rot_bin = batch_gt_rot_bin.cpu()
-        batch_gt_Rmat_noi = batch_gt_Rmat_noi.cpu()
+        # Back to CPU and numpy
+        batch_gt_rot_bin = batch_gt_rot_bin.cpu().numpy()
+        batch_gt_Rmat_noi = batch_gt_Rmat_noi.cpu().numpy()
+
         return batch_gt_rot_bin, batch_gt_Rmat_noi
 
     def __len__(self):
