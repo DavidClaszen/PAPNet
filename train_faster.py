@@ -107,12 +107,8 @@ if __name__ == '__main__':
                 pts.cuda(), gt_cls.cuda().long(), gt_rot_bin.cuda(), gt_Rmat_noi.cuda()
 
             optimizer.zero_grad()
-            print(f"Points shape: {pts.shape}")  # Expected shape: (B, N, 3)
 
-            vol = batch_pc2vol_torch(pts)  # B*N*3 -> B*64*64*64
-
-            # print the shape of vol for debugging
-            print(f"Volume shape: {vol.shape}")  # Expected shape: (B, 1, 64, 64, 64)
+            vol = batch_pc2vol_torch(pts)  # B*N*3 -> B*1*64*64*64
 
             pred_cls, pred_rot_bin = classifier(vol, gt_Rmat=gt_Rmat_noi, mode='train')
             cls_loss = F.cross_entropy(pred_cls, gt_cls)
@@ -156,7 +152,7 @@ if __name__ == '__main__':
                 final_cls = torch.gather(cand_cls, 1, torch.argmax(cand_log, 1)[:, None]).view(-1)
 
                 total_correct += torch.sum(final_cls == gt_cls).item()
-                total_bin += torch.sum(torch.argmax(pred_rot_bin, 1) == gt_rot_bin).item()
+                total_bin += torch.sum(torch.argmax(pred_rot_bin, 1) == gt_rot_bin.argmax(1)).item()
                 total_seen += final_cls.shape[0]
                 for i in range(final_cls.shape[0]):
                     l = gt_cls[i]
