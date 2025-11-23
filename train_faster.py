@@ -107,8 +107,12 @@ if __name__ == '__main__':
                 pts.cuda(), gt_cls.cuda().long(), gt_rot_bin.cuda(), gt_Rmat_noi.cuda()
 
             optimizer.zero_grad()
+            print(f"Volume shape before classifier: {vol.shape}")
 
             vol = batch_pc2vol_torch(pts)  # B*N*3 -> B*64*64*64
+
+            # print the shape of vol for debugging
+            print(f"Volume shape: {vol.shape}")  # Expected shape: (B, 1, 64, 64, 64)
 
             pred_cls, pred_rot_bin = classifier(vol, gt_Rmat=gt_Rmat_noi, mode='train')
             cls_loss = F.cross_entropy(pred_cls, gt_cls)

@@ -104,6 +104,10 @@ if __name__ == '__main__':
             vol, gt_cls, gt_rot, gt_noi = data
             vol, gt_cls, gt_rot, gt_noi = \
                 vol.cuda(), gt_cls.cuda().long(), gt_rot.cuda(), gt_noi.cuda()
+            
+            # Print the dimensions of vol for debugging
+            print(f"Volume shape: {vol.shape}")  # Expected shape: (B, 1, 64, 64, 64)
+
             optimizer.zero_grad()
             gt_rot_bin = Rs_to_bin_delta_batch(quat2mat(gt_rot), R_bin_ctrs, knn=True)# (B, 4) -> B
             gt_noi_bin = Rs_to_bin_delta_batch(quat2mat(gt_noi), R_bin_ctrs)# (B, 4) -> B
