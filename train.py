@@ -21,6 +21,8 @@ parser.add_argument('--learning_rate', default = 0.005)
 parser.add_argument('--lr_decay', default = [1, 0.1, 0.01])
 parser.add_argument('--lr_steps', default = [10, 15])
 parser.add_argument('--nepoch', type=int, default = 20)
+parser.add_argument('--ckpt_path', type=str, default = 'ckpt/')
+parser.add_argument('--runs_path', type=str, default = 'runs/')
 opt = parser.parse_args()
 
 def Rs_to_bin_delta_batch(Rs, R_bin_ctrs, knn=False):
@@ -77,9 +79,11 @@ if __name__ == '__main__':
     learning_rate = opt.learning_rate
     lr_decay = opt.lr_decay
     lr_steps = opt.lr_steps
+    ckpt_path = opt.ckpt_path
+    runs_path = opt.runs_path
 
     torch.backends.cudnn.benchmark = True
-    writer = SummaryWriter(logdir='./runs')
+    writer = SummaryWriter(logdir=runs_path)
 
     TRAIN_DATASET = DataLoader(dataset=opt.dataset, root=opt.data_path, split='train')
     TEST_DATASET = DataLoader(dataset=opt.dataset, root=opt.data_path, split='test')
@@ -170,8 +174,8 @@ if __name__ == '__main__':
             writer.add_scalar('test/cls_acc', test_cls_acc, epoch+1)  
             writer.add_scalar('test/bin_acc', test_bin_acc, epoch+1)  
 
-            if not os.path.exists(f'./ckpt/{opt.dataset}'):
-                os.makedirs(f'./ckpt/{opt.dataset}')
-            torch.save(classifier.state_dict(), './ckpt/{0}/model_{1}_{2}.pth'.format(opt.dataset, epoch+1, test_ins_acc))
+            if not os.path.exists(os.path.join(ckpt_path, opt.dataset)):
+                os.makedirs(os.path.join(ckpt_path, opt.dataset))
+            torch.save(classifier.state_dict(), os.path.join(ckpt_path, opt.dataset, 'model_{0}_{1}.pth'.format(epoch+1, test_ins_acc)))
          
            
