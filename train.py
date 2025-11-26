@@ -21,6 +21,9 @@ parser.add_argument('--learning_rate', default = 0.005)
 parser.add_argument('--lr_decay', default = [1, 0.1, 0.01])
 parser.add_argument('--lr_steps', default = [10, 15])
 parser.add_argument('--nepoch', type=int, default = 20)
+parser.add_argument('--ckpt_path', type=str, default = 'ckpt/')
+parser.add_argument('--runs_path', type=str, default = 'runs/')
+parser.add_argument('--weight_decay', type=float, default = 0.0)
 opt = parser.parse_args()
 
 def Rs_to_bin_delta_batch(Rs, R_bin_ctrs, knn=False):
@@ -77,9 +80,12 @@ if __name__ == '__main__':
     learning_rate = opt.learning_rate
     lr_decay = opt.lr_decay
     lr_steps = opt.lr_steps
+    ckpt_path = opt.ckpt_path
+    runs_path = opt.runs_path
+    weight_decay = opt.weight_decay if 'weight_decay' in opt else 0.0
 
     torch.backends.cudnn.benchmark = True
-    writer = SummaryWriter(logdir='./runs')
+    writer = SummaryWriter(logdir=runs_path)
 
     TRAIN_DATASET = DataLoader(dataset=opt.dataset, root=opt.data_path, split='train')
     TEST_DATASET = DataLoader(dataset=opt.dataset, root=opt.data_path, split='test')
@@ -87,7 +93,7 @@ if __name__ == '__main__':
     testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=opt.batch_size, shuffle=False, num_workers=opt.workers, pin_memory=True)
 
     classifier = nn.DataParallel(Model(num_class=num_class).cuda())
-    optimizer = torch.optim.Adam(classifier.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(classifier.parameters(), lr=learning_rate, weight_decay=weight_decay)
     print('# classifier parameters:', sum(param.numel() for param in classifier.parameters()))
 
     global_step = 0
@@ -104,6 +110,7 @@ if __name__ == '__main__':
             vol, gt_cls, gt_rot, gt_noi = data
             vol, gt_cls, gt_rot, gt_noi = \
                 vol.cuda(), gt_cls.cuda().long(), gt_rot.cuda(), gt_noi.cuda()
+
             optimizer.zero_grad()
             gt_rot_bin = Rs_to_bin_delta_batch(quat2mat(gt_rot), R_bin_ctrs, knn=True)# (B, 4) -> B
             gt_noi_bin = Rs_to_bin_delta_batch(quat2mat(gt_noi), R_bin_ctrs)# (B, 4) -> B
@@ -160,7 +167,7 @@ if __name__ == '__main__':
                     total_seen_class[l] += 1
 
             test_ins_acc = total_correct / float(total_seen)
-            test_cls_acc = np.mean(np.array(total_correct_class)/np.array(total_seen_class, dtype=np.float))
+            test_cls_acc = np.mean(np.array(total_correct_class)/np.array(total_seen_class, dtype=np.float32))
             test_bin_acc = total_bin / float(total_seen)
             print('Epoch: %d, Test Ins Acc: %f' % (epoch+1, test_ins_acc))
             print('Epoch: %d, Test Cls Acc: %f' % (epoch+1, test_cls_acc))
@@ -169,8 +176,8 @@ if __name__ == '__main__':
             writer.add_scalar('test/cls_acc', test_cls_acc, epoch+1)  
             writer.add_scalar('test/bin_acc', test_bin_acc, epoch+1)  
 
-            if not os.path.exists(f'./ckpt/{opt.dataset}'):
-                os.makedirs(f'./ckpt/{opt.dataset}')
-            torch.save(classifier.state_dict(), './ckpt/{0}/model_{1}_{2}.pth'.format(opt.dataset, epoch+1, test_ins_acc))
+            if not os.path.exists(os.path.join(ckpt_path, opt.dataset)):
+                os.makedirs(os.path.join(ckpt_path, opt.dataset))
+            torch.save(classifier.state_dict(), os.path.join(ckpt_path, opt.dataset, 'model_{0}_{1}.pth'.format(epoch+1, test_ins_acc)))
          
            
