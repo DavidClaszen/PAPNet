@@ -9,13 +9,6 @@ from tqdm import tqdm
 from lib.sample_rotations import sample_rotations_60
 R_bin_ctrs = torch.tensor(sample_rotations_60("matrix")).float().cuda()
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', type=str, default = '')
-parser.add_argument('--data_path', type=str, default = '')
-parser.add_argument('--model', type=str, default = '')
-parser.add_argument('--num_k', type=int, default = 20)
-opt = parser.parse_args()
-
 def Rs_to_bin_delta_batch(Rs, R_bin_ctrs, knn=False):
     def R_to_bin_delta(R=None, R_bin_ctrs=None, theta1=0.4, theta2=0.2, knn=False):
         def geodesic_dists(R_bin_ctrs, R):
@@ -54,16 +47,6 @@ def quat2mat(q):
             (1.0 - 2.0*(q[:, 1]**2 + q[:, 2]**2)).view(B, 1)), dim=1).view(B, 3, 3)
     return R 
 
-def pc2vol(points, vsize=64, radius=1.0):
-    B = points.shape[0]# B,1024,3
-    voxel = 2 * radius/ float(vsize)
-    locations = ((points + radius) / voxel).type(torch.int64)# B,1024,3
-    locations = locations[:, :, 0]*vsize*vsize+locations[:, :, 1]*vsize+locations[:, :, 2]# B,1024
-    vol = torch.zeros((B, vsize**3)).cuda()
-    vol = vol.scatter(1, locations, torch.ones(locations.shape).cuda())
-    vol = vol.view(B, 1, vsize, vsize, vsize).contiguous()
-    return vol
-
 def eval_papnet(model_path, dataset, data_path, rot_k, batch_size=16):
     """Evaluate a given PAPNet model on the specified dataset.
     
@@ -77,7 +60,6 @@ def eval_papnet(model_path, dataset, data_path, rot_k, batch_size=16):
     Returns:
         y_pred_cls (ndarray): Predicted classification labels. (N,)
         y_true_cls (ndarray): True classification labels. (N,)
-        y_pred_rot (ndarray): Rotation classification bin. (N,)
         y_pred_rot_k (ndarray): Top-k rotation classification bins. (N, k)
         y_true_rot (ndarray): True rotation classification bin. (N,)
 
@@ -85,6 +67,11 @@ def eval_papnet(model_path, dataset, data_path, rot_k, batch_size=16):
             For batch_size B, memory usage is approximately:
             Memory (in GB) = B * (4 + k) * size_of_float32(4 bytes)
     """
+
+    if dataset == 'pm40':
+        num_class = 40
+    elif dataset == 'ps15':
+        num_class = 15
     
     torch.backends.cudnn.benchmark = True
     TEST_DATASET = DataLoader(dataset=dataset, root=data_path, split='test')
@@ -94,11 +81,10 @@ def eval_papnet(model_path, dataset, data_path, rot_k, batch_size=16):
     classifier = classifier.eval()
     print('# classifier parameters:', sum(param.numel() for param in classifier.parameters()))
 
-    y_pred_cls = np.array([])
-    y_true_cls = np.array([])
-    y_pred_rot = np.array([])
-    y_pred_rot_k = np.array([])
-    y_true_rot = np.array([])
+    y_pred_cls = np.empty((0))
+    y_true_cls = np.empty((0))
+    y_pred_rot_k = np.empty((0,rot_k))
+    y_true_rot = np.empty((0))
 
     with torch.no_grad():
         total_correct = np.zeros(rot_k)
@@ -118,58 +104,14 @@ def eval_papnet(model_path, dataset, data_path, rot_k, batch_size=16):
                 pred_rot_bin_k = torch.topk(pred_rot_bin, k=i+1, dim=1)[1]# (B, 60) -> (B, i+1)
                 total_bin[i] += (pred_rot_bin_k == gt_rot_bin[:, None]).any(1).sum()
             total_seen += final_cls.shape[0]
+            y_pred_cls = np.concatenate((y_pred_cls, final_cls.cpu().numpy()), axis=0)
+            y_true_cls = np.concatenate((y_true_cls, gt_cls.cpu().numpy()), axis=0)
+            y_pred_rot_k = np.concatenate((y_pred_rot_k, pred_rot_bin_k.cpu().numpy()), axis=0)
+            y_true_rot = np.concatenate((y_true_rot, gt_rot_bin.cpu().numpy()), axis=0)
 
         test_ins_acc = total_correct / float(total_seen)
         test_bin_acc = total_bin / float(total_seen)
         for i in range(rot_k):
             print('k=%d, Test Ins Acc: %f, Test Bin Top-k Acc: %f' % (i+1, test_ins_acc[i], test_bin_acc[i]))
-        
-        y_pred_cls = np.concatenate((y_pred_cls, final_cls.cpu().numpy()), axis=0)
-        y_true_cls = np.concatenate((y_true_cls, gt_cls.cpu().numpy()), axis=0)
-        y_pred_rot = np.concatenate((y_pred_rot, pred_rot_bin.cpu().numpy()), axis=0)
-        y_pred_rot_k = np.concatenate((y_pred_rot_k, pred_rot_bin_k.cpu().numpy()), axis=0)
-        y_true_rot = np.concatenate((y_true_rot, gt_rot_bin.cpu().numpy()), axis=0)
 
-    return y_pred_cls, y_true_cls, y_pred_rot, y_pred_rot_k, y_true_rot
-
-if __name__ == '__main__':
-
-    if opt.dataset == 'pm40':
-        num_class = 40
-    elif opt.dataset == 'ps15':
-        num_class = 15
-
-    torch.backends.cudnn.benchmark = True
-    TEST_DATASET = DataLoader(dataset=opt.dataset, root=opt.data_path, split='test')
-    testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=16, shuffle=False, num_workers=8, pin_memory=True)
-
-    classifier = nn.DataParallel(Model(num_class=num_class, num_k=opt.num_k).cuda())
-    classifier.load_state_dict(torch.load(opt.model), strict=False)
-    classifier = classifier.eval()
-    print('# classifier parameters:', sum(param.numel() for param in classifier.parameters()))
-
-    with torch.no_grad():
-        total_correct = np.zeros(opt.num_k)
-        total_bin = np.zeros(opt.num_k)         
-        total_seen = 0
-        for batch_id, data in tqdm(enumerate(testDataLoader, 0), total=len(testDataLoader), smoothing=0.9):
-            vol, gt_cls, gt_rot, gt_noi = data
-            vol, gt_cls, gt_rot, gt_noi = \
-                vol.cuda(), gt_cls.cuda().long(), gt_rot.cuda(), gt_noi.cuda()
-            gt_rot_bin = Rs_to_bin_delta_batch(quat2mat(gt_rot), R_bin_ctrs)# (B, 4) -> B
-
-            cand_log, cand_cls, pred_rot_bin = classifier(vol)# (B, k), (B, k)
-            for i in range(opt.num_k):
-                final_cls = torch.gather(cand_cls[:, 0:i+1], 1, torch.argmax(cand_log[:, 0:i+1], 1)[:, None]).view(-1) # (B, )
-                total_correct[i] += torch.sum(final_cls == gt_cls).item()
-
-                pred_rot_bin_k = torch.topk(pred_rot_bin, k=i+1, dim=1)[1]# (B, 60) -> (B, i+1)
-                total_bin[i] += (pred_rot_bin_k == gt_rot_bin[:, None]).any(1).sum()
-            total_seen += final_cls.shape[0]
-
-        test_ins_acc = total_correct / float(total_seen)
-        test_bin_acc = total_bin / float(total_seen)
-        for i in range(opt.num_k):
-            print('k=%d, Test Ins Acc: %f, Test Bin Top-k Acc: %f' % (i+1, test_ins_acc[i], test_bin_acc[i]))
-         
-           
+    return y_pred_cls, y_true_cls, y_pred_rot_k, y_true_rot
