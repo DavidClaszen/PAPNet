@@ -68,6 +68,11 @@ def eval_papnet(model_path, dataset, data_path, rot_k, batch_size=16):
             For batch_size B, memory usage is approximately:
             Memory (in GB) = B * (4 + k) * size_of_float32(4 bytes)
     """
+
+    if dataset == 'pm40':
+        num_class = 40
+    elif dataset == 'ps15':
+        num_class = 15
     
     torch.backends.cudnn.benchmark = True
     TEST_DATASET = DataLoader(dataset=dataset, root=data_path, split='test')
