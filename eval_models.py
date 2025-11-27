@@ -60,7 +60,6 @@ def eval_papnet(model_path, dataset, data_path, rot_k, batch_size=16):
     Returns:
         y_pred_cls (ndarray): Predicted classification labels. (N,)
         y_true_cls (ndarray): True classification labels. (N,)
-        y_pred_rot (ndarray): Rotation classification bin. (N,)
         y_pred_rot_k (ndarray): Top-k rotation classification bins. (N, k)
         y_true_rot (ndarray): True rotation classification bin. (N,)
 
@@ -82,11 +81,10 @@ def eval_papnet(model_path, dataset, data_path, rot_k, batch_size=16):
     classifier = classifier.eval()
     print('# classifier parameters:', sum(param.numel() for param in classifier.parameters()))
 
-    y_pred_cls = np.array([])
-    y_true_cls = np.array([])
-    y_pred_rot = np.array([])
-    y_pred_rot_k = np.array([])
-    y_true_rot = np.array([])
+    y_pred_cls = np.empty((0))
+    y_true_cls = np.empty((0))
+    y_pred_rot_k = np.empty((0,rot_k))
+    y_true_rot = np.empty((0))
 
     with torch.no_grad():
         total_correct = np.zeros(rot_k)
@@ -106,16 +104,14 @@ def eval_papnet(model_path, dataset, data_path, rot_k, batch_size=16):
                 pred_rot_bin_k = torch.topk(pred_rot_bin, k=i+1, dim=1)[1]# (B, 60) -> (B, i+1)
                 total_bin[i] += (pred_rot_bin_k == gt_rot_bin[:, None]).any(1).sum()
             total_seen += final_cls.shape[0]
+            y_pred_cls = np.concatenate((y_pred_cls, final_cls.cpu().numpy()), axis=0)
+            y_true_cls = np.concatenate((y_true_cls, gt_cls.cpu().numpy()), axis=0)
+            y_pred_rot_k = np.concatenate((y_pred_rot_k, pred_rot_bin_k.cpu().numpy()), axis=0)
+            y_true_rot = np.concatenate((y_true_rot, gt_rot_bin.cpu().numpy()), axis=0)
 
         test_ins_acc = total_correct / float(total_seen)
         test_bin_acc = total_bin / float(total_seen)
         for i in range(rot_k):
             print('k=%d, Test Ins Acc: %f, Test Bin Top-k Acc: %f' % (i+1, test_ins_acc[i], test_bin_acc[i]))
-        
-        y_pred_cls = np.concatenate((y_pred_cls, final_cls.cpu().numpy()), axis=0)
-        y_true_cls = np.concatenate((y_true_cls, gt_cls.cpu().numpy()), axis=0)
-        y_pred_rot = np.concatenate((y_pred_rot, pred_rot_bin.cpu().numpy()), axis=0)
-        y_pred_rot_k = np.concatenate((y_pred_rot_k, pred_rot_bin_k.cpu().numpy()), axis=0)
-        y_true_rot = np.concatenate((y_true_rot, gt_rot_bin.cpu().numpy()), axis=0)
 
-    return y_pred_cls, y_true_cls, y_pred_rot, y_pred_rot_k, y_true_rot
+    return y_pred_cls, y_true_cls, y_pred_rot_k, y_true_rot
