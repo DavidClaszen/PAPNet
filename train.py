@@ -95,7 +95,7 @@ if __name__ == '__main__':
     testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=opt.batch_size, shuffle=False, num_workers=opt.workers, pin_memory=True)
 
     classifier = nn.DataParallel(Model(num_class=num_class).cuda())
-    if model_path is not '':
+    if model_path != '':
         classifier.load_state_dict(torch.load(model_path), strict=False)
     
     optimizer = torch.optim.Adam(classifier.parameters(), lr=learning_rate, weight_decay=weight_decay)
