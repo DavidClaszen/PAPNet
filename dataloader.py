@@ -61,17 +61,36 @@ def rot_add_noise(gt_rot, delta=45):
     return gt_noi
 
 class DataLoader(Dataset):
-    def __init__(self, dataset, root, split='train'):
+    def __init__(self, dataset, root, split='train', partiality=""):
+        """Custom Dataset for loading point cloud data and corresponding labels and rotations.
+        
+        This class loads data from three files located in the specified root directory:
+        - '<split>_points<_partiality>.npy': Contains point cloud data.
+        - '<split>_labels.npy': Contains labels for the point clouds.
+        - '<split>_gt_rot.npy': Contains ground truth rotations.
+
+        Args:
+            dataset (str): Name of the dataset ('pm40' or 'ps15').
+            root (str): Root directory where the dataset files are stored.
+            split (str): Dataset split to use ('train' or 'test').
+            partiality (str): Partiality setting for the dataset.
+                              Default is an empty string.
+
+        Returns:
+            object: An instance of the DataLoader class.
+
+        """
         self.dataset = dataset
         self.root = root
         self.split = split
+        self.partiality = partiality
 
         if split == 'train':
-            self.points = np.load(os.path.join(root, 'train_points.npy'))
+            self.points = np.load(os.path.join(root, f'train_points{partiality}.npy'))
             self.labels = np.load(os.path.join(root, 'train_labels.npy'))
             self.gt_rot = np.load(os.path.join(root, 'train_gt_rot.npy'))
         else:
-            self.points = np.load(os.path.join(root, 'test_points.npy'))
+            self.points = np.load(os.path.join(root, f'test_points{partiality}.npy'))
             self.labels = np.load(os.path.join(root, 'test_labels.npy'))
             self.gt_rot = np.load(os.path.join(root, 'test_gt_rot.npy'))
 
