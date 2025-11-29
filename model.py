@@ -125,6 +125,9 @@ class Model(torch.nn.Module):
         self.relu = nn.ReLU(True)
 
     def forward(self, vol, gt_Rmat=None, mode='test'):
+
+        # ------------------------------------
+        # This part is the PAPNet Backbone
         feat1 = self.conv1(vol)# B,16,64^3
         feat1_p = self.avgpool(feat1)# B,16,32^3
 
@@ -147,8 +150,14 @@ class Model(torch.nn.Module):
         type_3 = torch.cat([pyr1[:, 16:36, ...], pyr2[:, 32:72, ...], pyr3[:, 64:144, ...]], dim=1)
         type_4 = torch.cat([pyr1[:, 36:64, ...], pyr2[:, 72:128, ...], pyr3[:, 144:256, ...]], dim=1)
         feat_pyr = torch.cat([type_1, type_2, type_3, type_4], dim=1)# B,(28,28,28,28),16^3
-        feat_pyr1 = self.convp1(feat_pyr)# B,(16,16,16,16),16^3
+        feat_pyr1 = self.convp1(feat_pyr)# B,(16,16,16,16),16^3        
+        #feat_pyr1 is the canonical feature field (output of PAPNet backbone)
+        
+        # end of PAPNet Backbone
+        # ------------------------------------
 
+        # ------------------------------------
+        # Start of Pose Classifier
         feat_pyr_p = self.avgpool(feat_pyr1)# B,(16,16,16,16),8^3
         feat51 = self.conv51(feat_pyr_p)# B,(32,32,32,32),8^3
         feat52 = self.conv52(feat51)# B,(64,64,64,64),8^3
@@ -156,13 +165,19 @@ class Model(torch.nn.Module):
         feat = self.relu(self.bn1(self.fc1(feat)))
         feat = self.relu(self.bn2(self.fc2(feat)))
         pred_rot_bin = self.fc3(feat)# B,40
+        # end of Pose Classifier
+        # ------------------------------------
 
         '--------------------------------------------------------------------------'
 
         if mode == 'train':
+            # For training, use the ground-truth rotation to rotate the canonical feature field
+
             inv_Rmat = gt_Rmat.permute(0, 2, 1).contiguous()
             can_feat = rotate_field(feat_pyr1, inv_Rmat, (16, 16, 16, 16))# B,(16,16,16,16),16^3
 
+            # ------------------------------------
+            # Start of Object Classifier
             feat_c = self.conv0_c(can_feat)# B,256,16^3
             feat_c = self.avgpool(feat_c)# B,256,8^3
             feat_c = self.conv1_c(feat_c)# B,512,8^3
@@ -171,6 +186,8 @@ class Model(torch.nn.Module):
             feat_c = self.relu(self.bn1_c(self.fc1_c(feat_c)))
             feat_c = self.relu(self.bn2_c(self.fc2_c(feat_c)))
             cls = self.fc3_c(feat_c)# B,40
+            # end of Object Classifier
+            # ------------------------------------
             return cls, pred_rot_bin
 
         elif mode == 'test':
@@ -182,6 +199,8 @@ class Model(torch.nn.Module):
                 inv_Rmat = pred_Rmat.permute(0, 2, 1).contiguous()
                 can_feat = rotate_field(feat_pyr1, inv_Rmat, (16, 16, 16, 16))
 
+                # ------------------------------------
+                # Start of Object Classifier
                 feat_c = self.conv0_c(can_feat)# B,256,16^3
                 feat_c = self.avgpool(feat_c)# B,256,8^3
                 feat_c = self.conv1_c(feat_c)# B,512,8^3
@@ -190,6 +209,8 @@ class Model(torch.nn.Module):
                 feat_c = self.relu(self.bn1_c(self.fc1_c(feat_c)))
                 feat_c = self.relu(self.bn2_c(self.fc2_c(feat_c)))
                 cls = self.fc3_c(feat_c)# B,40
+                # end of Object Classifier
+                # ------------------------------------
 
                 pred_log, pred_cls = torch.max(cls, dim=1)
                 log_list.append(pred_log[:, None])
