@@ -24,6 +24,7 @@ parser.add_argument('--nepoch', type=int, default = 20)
 parser.add_argument('--ckpt_path', type=str, default = 'ckpt/')
 parser.add_argument('--runs_path', type=str, default = 'runs/')
 parser.add_argument('--weight_decay', type=float, default = 0.0)
+parser.add_argument('--model_path', type=str, default = '')
 opt = parser.parse_args()
 
 def Rs_to_bin_delta_batch(Rs, R_bin_ctrs, knn=False):
@@ -83,6 +84,7 @@ if __name__ == '__main__':
     ckpt_path = opt.ckpt_path
     runs_path = opt.runs_path
     weight_decay = opt.weight_decay if 'weight_decay' in opt else 0.0
+    model_path = opt.model_path
 
     torch.backends.cudnn.benchmark = True
     writer = SummaryWriter(logdir=runs_path)
@@ -93,6 +95,9 @@ if __name__ == '__main__':
     testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=opt.batch_size, shuffle=False, num_workers=opt.workers, pin_memory=True)
 
     classifier = nn.DataParallel(Model(num_class=num_class).cuda())
+    if model_path is not '':
+        classifier.load_state_dict(torch.load(model_path), strict=False)
+    
     optimizer = torch.optim.Adam(classifier.parameters(), lr=learning_rate, weight_decay=weight_decay)
     print('# classifier parameters:', sum(param.numel() for param in classifier.parameters()))
 
