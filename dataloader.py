@@ -60,8 +60,72 @@ def rot_add_noise(gt_rot, delta=45):
     gt_noi = mat2quat(gt_noi)
     return gt_noi
 
+
+def random_plane_occlusion(
+    batch_pc: np.ndarray,
+    min_occlude: float = 0.50,
+    max_occlude: float = 0.90,
+) -> np.ndarray:
+    """
+    Apply random plane-based occlusion to a batch of point clouds.
+
+    Args:
+        batch_pc: (B, N, D) array. First 3 dims are xyz, remaining dims
+                  (e.g. normals) are kept aligned.
+        min_occlude: minimum fraction of points to occlude.
+        max_occlude: maximum fraction of points to occlude.
+
+    Returns:
+        (B, N, D) array with each cloud occluded
+            and resampled back to N points.
+    """
+    assert batch_pc.ndim == 3, "batch_pc must be (B, N, D)"
+    B, N, D = batch_pc.shape
+    out = np.empty_like(batch_pc)
+
+    rng = np.random.default_rng()
+
+    for b in range(B):
+        pc = batch_pc[b]           # (N, D)
+        coords = pc[:, :3]         # xyz
+
+        # Sample occlusion fraction
+        frac_occ = rng.uniform(min_occlude, max_occlude)
+        k_drop = int(round(frac_occ * N))
+        k_drop = max(1, min(N - 1, k_drop))  # drop at least 1, keep at least 1
+
+        # Random plane normal
+        n = rng.normal(size=3)
+        n /= (np.linalg.norm(n) + 1e-8)
+        # Project points onto this direction
+        proj = coords @ n  # (N,)
+        # Sort along projection axis
+        sorted_idx = np.argsort(proj)
+
+        # Randomly choose which side to occlude: near or far
+        if rng.integers(0, 2) == 0:
+            # Occlude smallest projections
+            keep_idx = sorted_idx[k_drop:]
+        else:
+            # Occlude largest projections
+            keep_idx = sorted_idx[:N - k_drop]
+
+        kept = pc[keep_idx]        # (N_keep, D)
+        N_keep = kept.shape[0]
+
+        # Resample remaining points back to N with replacement
+        if N_keep == N:
+            out[b] = kept
+        else:
+            extra_idx = rng.integers(0, N_keep, size=N - N_keep)
+            all_idx = np.concatenate([np.arange(N_keep), extra_idx], axis=0)
+            out[b] = kept[all_idx]
+
+    return out
+
+
 class DataLoader(Dataset):
-    def __init__(self, dataset, root, split='train', partiality=""):
+    def __init__(self, dataset, root, split='train', partiality="", occlusion_setting=None):
         """Custom Dataset for loading point cloud data and corresponding labels and rotations.
         
         This class loads data from three files located in the specified root directory:
@@ -75,6 +139,8 @@ class DataLoader(Dataset):
             split (str): Dataset split to use ('train' or 'test').
             partiality (str): Partiality setting for the dataset.
                               Default is an empty string.
+            occlusion_setting (dict, optional): Settings for applying occlusion during training.
+                                               If None, no occlusion is applied.
 
         Returns:
             object: An instance of the DataLoader class.
@@ -89,6 +155,18 @@ class DataLoader(Dataset):
             self.points = np.load(os.path.join(root, f'train_points{partiality}.npy'))
             self.labels = np.load(os.path.join(root, 'train_labels.npy'))
             self.gt_rot = np.load(os.path.join(root, 'train_gt_rot.npy'))
+
+            # Optional occlusion setting for training data
+            if occlusion_setting is not None:
+                assert occlusion_setting.get('min_occlude', 0) >= 0.0 and occlusion_setting.get('max_occlude', 1.0) <= 1.0, \
+                    "Occlusion fractions must be between 0 and 1."
+                assert occlusion_setting['min_occlude'] <= occlusion_setting['max_occlude'], \
+                    "min_occlude must be less than or equal to max_occlude."
+                self.points = random_plane_occlusion(
+                    self.points,
+                    min_occlude=occlusion_setting.get('min_occlude', 0.50),
+                    max_occlude=occlusion_setting.get('max_occlude', 0.90),
+                )
         else:
             self.points = np.load(os.path.join(root, f'test_points{partiality}.npy'))
             self.labels = np.load(os.path.join(root, 'test_labels.npy'))
