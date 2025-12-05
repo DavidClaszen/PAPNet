@@ -85,11 +85,13 @@ if __name__ == '__main__':
     runs_path = opt.runs_path
     weight_decay = opt.weight_decay if 'weight_decay' in opt else 0.0
     model_path = opt.model_path
+    occlusion_min = opt.occlusion_min if 'occlusion_min' in opt else 0.5
+    occlusion_max = opt.occlusion_max if 'occlusion_max' in opt else 0.9
 
     torch.backends.cudnn.benchmark = True
     writer = SummaryWriter(logdir=runs_path)
 
-    TRAIN_DATASET = DataLoader(dataset=opt.dataset, root=opt.data_path, split='train')
+    TRAIN_DATASET = DataLoader(dataset=opt.dataset, root=opt.data_path, split='train', occlusion_setting={'min_occlude': occlusion_min, 'max_occlude': occlusion_max})
     TEST_DATASET = DataLoader(dataset=opt.dataset, root=opt.data_path, split='test')
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATASET, batch_size=opt.batch_size, shuffle=True, num_workers=opt.workers, pin_memory=True)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=opt.batch_size, shuffle=False, num_workers=opt.workers, pin_memory=True)

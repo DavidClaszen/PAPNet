@@ -52,8 +52,7 @@ def eval_papnet(model_path: str,
                 data_path: str,
                 rot_k: int,
                 partiality: str = "",
-                batch_size: int = 16,
-                occlusion_setting: dict = None):
+                batch_size: int = 16):
     """Evaluate a given PAPNet model on the specified dataset.
     
     Args:
@@ -86,7 +85,7 @@ def eval_papnet(model_path: str,
         num_class = 15
     
     torch.backends.cudnn.benchmark = True
-    TEST_DATASET = DataLoader(dataset=dataset, root=data_path, split='test', partiality=partiality, occlusion_setting=occlusion_setting)
+    TEST_DATASET = DataLoader(dataset=dataset, root=data_path, split='test', partiality=partiality)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True)
     classifier = nn.DataParallel(Model(num_class=num_class, num_k=rot_k).cuda())
     classifier.load_state_dict(torch.load(model_path), strict=False)
