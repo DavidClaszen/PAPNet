@@ -25,6 +25,8 @@ parser.add_argument('--ckpt_path', type=str, default = 'ckpt/')
 parser.add_argument('--runs_path', type=str, default = 'runs/')
 parser.add_argument('--weight_decay', type=float, default = 0.0)
 parser.add_argument('--model_path', type=str, default = '')
+parser.add_argument('--occlusion_min', type=float, default = 0.5)
+parser.add_argument('--occlusion_max', type=float, default = 0.9)
 opt = parser.parse_args()
 
 def Rs_to_bin_delta_batch(Rs, R_bin_ctrs, knn=False):
