@@ -47,7 +47,12 @@ def quat2mat(q):
             (1.0 - 2.0*(q[:, 1]**2 + q[:, 2]**2)).view(B, 1)), dim=1).view(B, 3, 3)
     return R 
 
-def eval_papnet(model_path, dataset, data_path, rot_k, partiality="", batch_size=16):
+def eval_papnet(model_path: str, 
+                dataset: str, 
+                data_path: str,
+                rot_k: int,
+                partiality: str = "",
+                batch_size: int = 16):
     """Evaluate a given PAPNet model on the specified dataset.
     
     Args:
@@ -58,7 +63,11 @@ def eval_papnet(model_path, dataset, data_path, rot_k, partiality="", batch_size
         partiality (str): Partiality setting for the dataset.
                           Default is an empty string.
         batch_size (int): Batch size for evaluation.
-    
+        occlusion_setting (dict, optional): Settings for applying occlusion during training.
+                                            If None, no occlusion is applied.
+            Dict keys:
+                - 'min_occlude' (float): Minimum occlusion fraction. (between 0 and 1)
+                - 'max_occlude' (float): Maximum occlusion fraction (between 0 and 1).
     Returns:
         y_pred_cls (ndarray): Predicted classification labels. (N,)
         y_true_cls (ndarray): True classification labels. (N,)
