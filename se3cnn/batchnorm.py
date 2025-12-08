@@ -172,7 +172,7 @@ class SE3BNConvolution(torch.nn.Module):
         return (1 - self.momentum) * curr + self.momentum * update.detach()
 
 
-    def forward(self, input):  # pylint: disable=W
+    def forward(self, input: torch.Tensor):  # pylint: disable=W
         field_means = []
         field_norms = []
         
