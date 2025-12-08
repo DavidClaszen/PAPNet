@@ -151,7 +151,7 @@ class SE3BNConvolution(torch.nn.Module):
         self.kernel = SE3Kernel(Rs_in, Rs_out, size, radial_window, dyn_iso, verbose)
         self.kwargs = kwargs
 
-        self.Rs : List[tuple[int, int]] = list(zip(self.kernel.multiplicities_in, self.kernel.dims_in))
+        self.Rs = list(zip(self.kernel.multiplicities_in, self.kernel.dims_in))
         num_scalar = sum(m for m, d in self.Rs if d == 1)
         num_features = sum(m for m, d in self.Rs)
 
@@ -184,7 +184,7 @@ class SE3BNConvolution(torch.nn.Module):
         irm = 0
         irv = 0
         for m, d in self.Rs:
-            field = input[:, ix: ix + m * d]  # [batch, feature * repr, x, y, z]
+            field = input[:][ix: ix + m * d]  # [batch, feature * repr, x, y, z]
             ix += m * d
 
             # [batch, feature, repr, x * y * z]
