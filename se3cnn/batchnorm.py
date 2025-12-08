@@ -183,7 +183,6 @@ class SE3BNConvolution(torch.nn.Module):
         ix = 0
         irm = 0
         irv = 0
-        print(self.Rs)
         for m, d in self.Rs:
             field = input[: ix: ix + m * d]  # [batch, feature * repr, x, y, z]
             ix += m * d
