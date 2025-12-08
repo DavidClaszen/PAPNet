@@ -133,7 +133,7 @@ class SE3BatchNorm(nn.Module):
 
 from se3cnn import SE3Kernel
 from se3cnn import kernel
-
+from typing import List
 
 class SE3BNConvolution(torch.nn.Module):
     '''
@@ -151,7 +151,7 @@ class SE3BNConvolution(torch.nn.Module):
         self.kernel = SE3Kernel(Rs_in, Rs_out, size, radial_window, dyn_iso, verbose)
         self.kwargs = kwargs
 
-        self.Rs = list(zip(self.kernel.multiplicities_in, self.kernel.dims_in))
+        self.Rs : List[tuple[int, int]] = list(zip(self.kernel.multiplicities_in, self.kernel.dims_in))
         num_scalar = sum(m for m, d in self.Rs if d == 1)
         num_features = sum(m for m, d in self.Rs)
 
